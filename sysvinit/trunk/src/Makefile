@@ -166,7 +166,7 @@ consoles.o:	consoles.c consoles.h
 cleanobjs:
 		rm -f *.o *.bak
 
-clean:		cleanobjs
+clean:		cleanobjs 
 		@echo Type \"make clobber\" to really clean up.
 
 clobber:	cleanobjs

@@ -1,0 +1,23 @@
+--- sulogin.c-orig	2014-02-09 22:39:52.408139238 +0100
++++ sulogin.c	2014-02-10 00:13:30.176272755 +0100
+@@ -605,6 +605,7 @@
+ {
+ 	static char pass[128], *ptr;
+ 	struct sigaction sa;
++	sigset_t sig_mask;
+ 	struct chardata *cp;
+ 	struct termios tty;
+ 	char *ret = pass;
+@@ -625,6 +626,12 @@
+ 
+ 	sa.sa_handler = alrm_handler;
+ 	sa.sa_flags = 0;
++
++	if(sigemptyset(&sig_mask) < 0){
++		fprintf(stderr, "sulogin: failed to initialize signal set to empty\n\r");
++	}
++	
++	sa.sa_mask = sig_mask;
+ 	sigaction(SIGALRM, &sa, NULL);
+ 	if (timeout) alarm(timeout);
+ 

@@ -1,0 +1,87 @@
+--- init.c-orig	2014-02-09 22:40:02.440139479 +0100
++++ init.c	2014-02-09 22:08:13.714938482 +0100
+@@ -978,6 +978,7 @@
+   char *args[16];		/* Argv array */
+   char buf[136];		/* Line buffer */
+   int f, st;			/* Scratch variables */
++  int ftty;			/* Handler for tty controlling */
+   char *ptr;			/* Ditto */
+   time_t t;			/* System time */
+   int oldAlarm;			/* Previous alarm value */
+@@ -1107,11 +1108,17 @@
+ 			 *	of the console after exit of the leader.
+ 			 */
+ 			setsid();
+-			if ((f = console_open(O_RDWR|O_NOCTTY)) >= 0) {
++			if ((ftty = console_open(O_RDWR|O_NOCTTY)) >= 0) {
+ 				/* Take over controlling tty by force */
+-				(void)ioctl(f, TIOCSCTTY, 1);
+-  				dup(f);
+-  				dup(f);
++				(void)ioctl(ftty, TIOCSCTTY, 1);
++
++				if(dup(ftty) < 0){
++					initlog(L_VB, "cannot duplicate console fd");
++				}
++			
++				if(dup(ftty) < 0){
++					initlog(L_VB, "cannot duplicate console fd");
++				}
+ 			}
+ 
+ 			/*
+@@ -1145,7 +1152,7 @@
+ 				 *	Small optimization. See if stealing
+ 				 *	controlling tty back is needed.
+ 				 */
+-				pgrp = tcgetpgrp(f);
++				pgrp = tcgetpgrp(ftty);
+ 				if (pgrp != getpid())
+ 					exit(0);
+ 
+@@ -1160,7 +1167,7 @@
+ 				}
+ 				if (pid == 0) {
+ 					setsid();
+-					(void)ioctl(f, TIOCSCTTY, 1);
++					(void)ioctl(ftty, TIOCSCTTY, 1);
+ 					exit(0);
+ 				}
+ 				while((rc = waitpid(pid, &st, 0)) != pid)
+@@ -1180,8 +1187,16 @@
+ 					strerror(errno));
+ 				fd = open("/dev/null", O_RDWR);
+ 			}
+-			dup(fd);
+-			dup(fd);
++
++			if(dup(fd) < 0){
++				initlog(L_VB, "cannot duplicate /dev/null fd");
++			}
++
++			if(dup(fd) < 0){
++				initlog(L_VB, "cannot duplicate /dev/null fd");
++			}
++
++
+ 		}
+ 
+ 		/*
+--- sulogin.c-orig	2014-02-09 22:39:52.408139238 +0100
++++ sulogin.c	2014-02-09 21:59:31.710926076 +0100
+@@ -605,6 +605,7 @@
+ {
+ 	static char pass[128], *ptr;
+ 	struct sigaction sa;
++	sigset_t sig_mask;
+ 	struct chardata *cp;
+ 	struct termios tty;
+ 	char *ret = pass;
+@@ -625,6 +626,7 @@
+ 
+ 	sa.sa_handler = alrm_handler;
+ 	sa.sa_flags = 0;
++	sa.sa_mask = sig_mask;
+ 	sigaction(SIGALRM, &sa, NULL);
+ 	if (timeout) alarm(timeout);
+ 

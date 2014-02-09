@@ -372,10 +372,7 @@ static CHILD *get_record(FILE *f)
 			case C_REC:
 				break;
 			case D_RUNLEVEL:
-				if(fscanf(f, "%c\n", &runlevel) < 0){
-					fprintf(stderr, "Failed to read value from state pipe\n");
-					return NULL;
-				}
+				fscanf(f, "%c\n", &runlevel);
 				break;
 			case D_THISLEVEL:
 				fscanf(f, "%c\n", &thislevel);
@@ -981,7 +978,6 @@ pid_t spawn(CHILD *ch, int *res)
   char *args[16];		/* Argv array */
   char buf[136];		/* Line buffer */
   int f, st;			/* Scratch variables */
-  int ftty;			/* Handler for tty controlling */
   char *ptr;			/* Ditto */
   time_t t;			/* System time */
   int oldAlarm;			/* Previous alarm value */
@@ -1111,17 +1107,11 @@ pid_t spawn(CHILD *ch, int *res)
 			 *	of the console after exit of the leader.
 			 */
 			setsid();
-			if ((ftty = console_open(O_RDWR|O_NOCTTY)) >= 0) {
+			if ((f = console_open(O_RDWR|O_NOCTTY)) >= 0) {
 				/* Take over controlling tty by force */
-				(void)ioctl(ftty, TIOCSCTTY, 1);
-
-				if(dup(ftty) < 0){
-					initlog(L_VB, "cannot duplicate console fd");
-				}
-			
-				if(dup(ftty) < 0){
-					initlog(L_VB, "cannot duplicate console fd");
-				}
+				(void)ioctl(f, TIOCSCTTY, 1);
+  				dup(f);
+  				dup(f);
 			}
 
 			/*
@@ -1155,7 +1145,7 @@ pid_t spawn(CHILD *ch, int *res)
 				 *	Small optimization. See if stealing
 				 *	controlling tty back is needed.
 				 */
-				pgrp = tcgetpgrp(ftty);
+				pgrp = tcgetpgrp(f);
 				if (pgrp != getpid())
 					exit(0);
 
@@ -1170,7 +1160,7 @@ pid_t spawn(CHILD *ch, int *res)
 				}
 				if (pid == 0) {
 					setsid();
-					(void)ioctl(ftty, TIOCSCTTY, 1);
+					(void)ioctl(f, TIOCSCTTY, 1);
 					exit(0);
 				}
 				while((rc = waitpid(pid, &st, 0)) != pid)
@@ -1190,16 +1180,8 @@ pid_t spawn(CHILD *ch, int *res)
 					strerror(errno));
 				fd = open("/dev/null", O_RDWR);
 			}
-
-			if(dup(fd) < 0){
-				initlog(L_VB, "cannot duplicate /dev/null fd");
-			}
-
-			if(dup(fd) < 0){
-				initlog(L_VB, "cannot duplicate /dev/null fd");
-			}
-
-
+			dup(fd);
+			dup(fd);
 		}
 
 		/*
