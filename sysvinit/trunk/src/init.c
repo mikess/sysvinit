@@ -978,6 +978,7 @@ pid_t spawn(CHILD *ch, int *res)
   char *args[16];		/* Argv array */
   char buf[136];		/* Line buffer */
   int f, st;			/* Scratch variables */
+  int ftty;			/* Handler for tty controlling */
   char *ptr;			/* Ditto */
   time_t t;			/* System time */
   int oldAlarm;			/* Previous alarm value */
@@ -1107,11 +1108,17 @@ pid_t spawn(CHILD *ch, int *res)
 			 *	of the console after exit of the leader.
 			 */
 			setsid();
-			if ((f = console_open(O_RDWR|O_NOCTTY)) >= 0) {
+			if ((ftty = console_open(O_RDWR|O_NOCTTY)) >= 0) {
 				/* Take over controlling tty by force */
-				(void)ioctl(f, TIOCSCTTY, 1);
-  				dup(f);
-  				dup(f);
+				(void)ioctl(ftty, TIOCSCTTY, 1);
+
+				if(dup(ftty) < 0){
+					initlog(L_VB, "cannot duplicate console fd");
+				}
+			
+				if(dup(ftty) < 0){
+					initlog(L_VB, "cannot duplicate console fd");
+				}
 			}
 
 			/*
@@ -1145,7 +1152,7 @@ pid_t spawn(CHILD *ch, int *res)
 				 *	Small optimization. See if stealing
 				 *	controlling tty back is needed.
 				 */
-				pgrp = tcgetpgrp(f);
+				pgrp = tcgetpgrp(ftty);
 				if (pgrp != getpid())
 					exit(0);
 
@@ -1160,7 +1167,7 @@ pid_t spawn(CHILD *ch, int *res)
 				}
 				if (pid == 0) {
 					setsid();
-					(void)ioctl(f, TIOCSCTTY, 1);
+					(void)ioctl(ftty, TIOCSCTTY, 1);
 					exit(0);
 				}
 				while((rc = waitpid(pid, &st, 0)) != pid)
@@ -1180,8 +1187,16 @@ pid_t spawn(CHILD *ch, int *res)
 					strerror(errno));
 				fd = open("/dev/null", O_RDWR);
 			}
-			dup(fd);
-			dup(fd);
+
+			if(dup(fd) < 0){
+				initlog(L_VB, "cannot duplicate /dev/null fd");
+			}
+
+			if(dup(fd) < 0){
+				initlog(L_VB, "cannot duplicate /dev/null fd");
+			}
+
+
 		}
 
 		/*

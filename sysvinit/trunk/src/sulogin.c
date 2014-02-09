@@ -605,6 +605,7 @@ char *getpasswd(struct console *con)
 {
 	static char pass[128], *ptr;
 	struct sigaction sa;
+	sigset_t sig_mask;
 	struct chardata *cp;
 	struct termios tty;
 	char *ret = pass;
@@ -625,6 +626,7 @@ char *getpasswd(struct console *con)
 
 	sa.sa_handler = alrm_handler;
 	sa.sa_flags = 0;
+	sa.sa_mask = sig_mask;
 	sigaction(SIGALRM, &sa, NULL);
 	if (timeout) alarm(timeout);
 
